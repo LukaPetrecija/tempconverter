@@ -32,3 +32,8 @@
 - Verified: browser at localhost:5000 shows name/college + working conversions;
   SELECT CURRENT_USER() returns appuser@% (non-root); rows visible in temperature table.
 - Note: cryptography lib in requirements.txt is needed for MySQL 8 caching_sha2_password auth.
+## Troubleshooting — pytest ModuleNotFoundError 'converter'
+- pytest collecting tests/test_unit.py put only the tests/ folder on the import path,
+  so it couldn't import converter.py / app.py from the project root.
+- Fix: added an empty conftest.py at the repo root, which makes pytest add the root
+  to sys.path. Fixed both local runs and the CI pipeline (same pytest invocation).
