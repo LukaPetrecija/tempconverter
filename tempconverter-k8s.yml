@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tc-secret
+type: Opaque
+stringData:
+  DB_USER: appuser
+  DB_PASS: apppass
+  DB_NAME: tempconverter
+  MYSQL_ROOT_PASSWORD: rootpass
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: db }
+  template:
+    metadata:
+      labels: { app: db }
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: mysql
+          image: mysql:8
+          env:
+            - { name: MYSQL_DATABASE, value: tempconverter }
+            - { name: MYSQL_USER, valueFrom: { secretKeyRef: { name: tc-secret, key: DB_USER } } }
+            - { name: MYSQL_PASSWORD, valueFrom: { secretKeyRef: { name: tc-secret, key: DB_PASS } } }
+            - { name: MYSQL_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: tc-secret, key: MYSQL_ROOT_PASSWORD } } }
+          ports:
+            - containerPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector: { app: db }
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: tempconverter }
+  template:
+    metadata:
+      labels: { app: tempconverter }
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: { app: tempconverter }
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: app
+          image: docker.io/lpetrec/tempconverter:dev
+          ports:
+            - containerPort: 5000
+          env:
+            - { name: DB_HOST, value: db }
+            - { name: DB_NAME, valueFrom: { secretKeyRef: { name: tc-secret, key: DB_NAME } } }
+            - { name: DB_USER, valueFrom: { secretKeyRef: { name: tc-secret, key: DB_USER } } }
+            - { name: DB_PASS, valueFrom: { secretKeyRef: { name: tc-secret, key: DB_PASS } } }
+            - { name: STUDENT, value: "Luka Petrecija" }
+            - { name: COLLEGE, value: "Algebra Bernays University" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+spec:
+  type: LoadBalancer
+  selector: { app: tempconverter }
+  ports:
+    - port: 80
+      targetPort: 5000

@@ -103,3 +103,17 @@
   `systemctl restart k3s-agent`. Both workers registered and went Ready within ~1 min.
 - Also: the curl|sh join can appear to hang at "Starting k3s-agent" — the install actually
   finished (k3s runs as a systemd service); closing the window doesn't undo it.
+## Step 8B — Deploy to Kubernetes + scale (LO6, LO4)
+- Manifests in tempconverter-k8s.yml (in repo as appendix): Secret (DB creds), db Deployment+Service
+  (MySQL pinned to control-plane via nodeSelector+toleration, reachable as service "db"),
+  app Deployment (replicas:2, podAntiAffinity requiredDuringScheduling on hostname = different nodes),
+  app Service type LoadBalancer port 80 -> targetPort 5000.
+- Built file in WSL, `multipass transfer` to k8s1, `kubectl apply -f`.
+- Result: db + 2 app pods Running; app pods on k8s2 and k8s3 (different nodes, anti-affinity works).
+- Self-healing: app pods showed 2-3 RESTARTS (started before MySQL ready, crashed, auto-restarted).
+  Kubernetes does this by DEFAULT — no restart policy needed (vs Swarm's explicit restart_policy).
+- Exposed on port 80 via LoadBalancer service (k3s built-in LB); reachable at http://<node-ip>.
+- Scaling (6c): `kubectl scale deployment app --replicas=3`. 3rd pod stays Pending — hard
+  podAntiAffinity + only 2 eligible nodes = nowhere legal to place it (scheduler logs the anti-affinity
+  rule). Same outcome as Swarm's 2/3 cap, different mechanism. Resolutions: add a node, or switch to
+  preferredDuringScheduling. Scaled back to 2.
