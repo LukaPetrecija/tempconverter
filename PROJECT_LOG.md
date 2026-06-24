@@ -88,3 +88,18 @@
   the 3rd replica stays Pending ("no suitable node") — the constraint correctly prevents doubling up.
   To truly reach 3: add a node (preferred), or relax max_replicas_per_node (loses HA guarantee).
   Scaled back to 2 for the required state.
+## Step 8A — Kubernetes (k3s) cluster (complex orchestrator, LO6/LO4)
+- Built a 3-node k3s cluster on multipass VMs: k8s1 = control-plane (hosts MySQL),
+  k8s2 + k8s3 = workers (run app replicas).
+- Installed k3s server on k8s1 with --disable traefik (frees port 80 for our LoadBalancer)
+  and --write-kubeconfig-mode 644; workers joined via curl get.k3s.io with K3S_URL + K3S_TOKEN.
+- Verified: `kubectl get nodes` shows all 3 Ready (k8s1 control-plane, k8s2/k8s3 workers).
+
+## Troubleshooting — k3s workers not joining (LO5)
+- Workers installed but never appeared in `get nodes`. Cause: the K3S_TOKEN was only the
+  first half of the node-token. The real token is the FULL string "K10<hash>::server:<secret>",
+  not just the leading hash segment.
+- Fix: rewrote /etc/systemd/system/k3s-agent.service.env with the complete token and
+  `systemctl restart k3s-agent`. Both workers registered and went Ready within ~1 min.
+- Also: the curl|sh join can appear to hang at "Starting k3s-agent" — the install actually
+  finished (k3s runs as a systemd service); closing the window doesn't undo it.
