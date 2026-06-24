@@ -37,3 +37,31 @@
   so it couldn't import converter.py / app.py from the project root.
 - Fix: added an empty conftest.py at the repo root, which makes pytest add the root
   to sys.path. Fixed both local runs and the CI pipeline (same pytest invocation).
+## Step 5 — Container vs VM resource comparison (LO1)
+- Container (tempconverter app, running): memory 96.12 MB, image 181 MB, startup 0.44 s; shares host kernel.
+- VM (multipass Ubuntu 26.04, Hyper-V backend, idle): memory 350.9 MiB, disk 2.2 GiB, boot 19.18 s; full guest OS.
+- Result: container uses ~3.6x less RAM, ~12x less disk, and starts ~44x faster — because it shares
+  the host kernel instead of booting a whole operating system. (Note the container figure is the app
+  actually running, while the VM figure is idle, so the real gap is even larger.)
+- Measurement commands: `podman stats --no-stream`, `podman images`, `time podman start`;
+  `multipass info devops-vm`, `multipass exec devops-vm -- systemd-analyze`.
+
+## Step 6 — Git repo, unit/integration tests, CI pipeline (LO3)
+- All code stored in own GitHub repo: github.com/LukaPetrecija/tempconverter.
+- Refactored conversion math into converter.py so it is unit-testable in isolation.
+- Unit tests (tests/test_unit.py): 4 cases on celsius_to_fahrenheit, no DB needed — pass locally.
+- Integration tests (tests/test_integration.py): drive the real Flask app against a real MySQL,
+  verifying the homepage renders and a conversion is persisted and shown.
+- CI pipeline (.github/workflows/ci.yml): starts a MySQL 8 service, runs unit tests, waits for the DB,
+  runs integration tests, then builds the container image. Full pipeline passes (green).
+
+## Troubleshooting collected during Steps 5-6 (LO5)
+- podman stats failed: needs cgroups v2. Enabled systemd via /etc/wsl.conf ([boot] systemd=true).
+  The restart kept failing because Docker Desktop held the WSL VM open in the background;
+  fixed by fully quitting Docker Desktop, then `wsl --shutdown` from Windows PowerShell.
+- Lesson: `wsl` commands run from Windows PowerShell, NOT inside the Ubuntu shell.
+- git push of the workflow file was rejected: a Personal Access Token needs the `workflow` scope,
+  not just `repo`, to create/update files under .github/workflows/.
+- CI build step failed with "no Dockerfile": the Dockerfile existed locally but had never been
+  committed to git; `git add Dockerfile` + push fixed it. (Good argument for CI — it caught a file
+  missing from the repo that a purely local test never would have.)
