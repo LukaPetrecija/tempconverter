@@ -5,6 +5,7 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import InputRequired
 from datetime import datetime
 from os import environ
+from converter import celsius_to_fahrenheit
 
 app = Flask(__name__)
 # Configure secret key for flask - used for session sharing
@@ -44,7 +45,7 @@ def index():
     form = TemperatureForm()
     if form.validate_on_submit():
         celsius = float(form.celsius.data)
-        fahrenheit = round(((celsius * 1.8) + 32),2)
+        fahrenheit = celsius_to_fahrenheit(celsius)
         temperature = Temperature(celsius=celsius, fahrenheit=fahrenheit, ip_address=request.remote_addr, user_agent=request.user_agent.string)
         db.session.add(temperature)
         db.session.commit()
