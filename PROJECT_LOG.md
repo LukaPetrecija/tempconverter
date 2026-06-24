@@ -117,3 +117,13 @@
   podAntiAffinity + only 2 eligible nodes = nowhere legal to place it (scheduler logs the anti-affinity
   rule). Same outcome as Swarm's 2/3 cap, different mechanism. Resolutions: add a node, or switch to
   preferredDuringScheduling. Scaled back to 2.
+## Step 8B — correction on scaling behaviour
+- scale to replicas=3 did NOT leave a pod Pending (unlike Swarm). The 3rd app pod scheduled
+  onto k8s1 (control-plane) because the app Deployment has no nodeSelector and k8s1 had no app
+  pod yet — so all 3 replicas sit on 3 different nodes, anti-affinity fully satisfied.
+- Kubernetes only hits Pending at replicas=4: with 3 nodes and max 1 app pod per node via
+  podAntiAffinity, the 4th has nowhere legal to go. `describe pod` then logs a FailedScheduling
+  message citing the anti-affinity rule.
+- Comparison point (LO6): Swarm capped app at 2/3 (only 2 worker-eligible nodes for app);
+  Kubernetes scaled to 3/3 cleanly (control-plane also schedulable). Same constraint type
+  (one replica per node) enforced by different mechanisms (max_replicas_per_node vs podAntiAffinity).
