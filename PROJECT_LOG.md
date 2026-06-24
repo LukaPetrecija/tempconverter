@@ -127,3 +127,12 @@
 - Comparison point (LO6): Swarm capped app at 2/3 (only 2 worker-eligible nodes for app);
   Kubernetes scaled to 3/3 cleanly (control-plane also schedulable). Same constraint type
   (one replica per node) enforced by different mechanisms (max_replicas_per_node vs podAntiAffinity).
+## Step 9A — Orchestrator comparison + reflection (LO6)
+- Built the Swarm-vs-Kubernetes comparison table (setup, config format, replicas, one-per-node
+  mechanism, port-80 LB, self-healing, secrets, scaling, verbosity, learning curve).
+- Key difference: self-healing — Swarm needs explicit restart_policy; Kubernetes restarts pods
+  by default (observed via RESTARTS count with no policy set).
+- CORRECTION to Step 7 note: did NOT verify Swarm capping at 2/3. Accurate statement: both
+  enforce one replica per node; with 3 nodes both reach 3 replicas; Pending only when replicas > nodes.
+- Reflection (Task 9): Swarm for simpler/smaller environments (fast, one file, gentle curve);
+  Kubernetes for complex/production (granular control, default self-healing, huge ecosystem, portability).
