@@ -65,3 +65,26 @@
 - CI build step failed with "no Dockerfile": the Dockerfile existed locally but had never been
   committed to git; `git add Dockerfile` + push fixed it. (Good argument for CI — it caught a file
   missing from the repo that a purely local test never would have.)
+## Step 7A — Docker Swarm cluster (simpler orchestrator, LO4)
+- Built a 3-node Swarm from multipass VMs (Swarm needs the Docker engine; podman doesn't do Swarm).
+- swarm1 = manager (2G, will host MySQL); swarm2, swarm3 = workers (1G, run the Flask app).
+- Installed Docker via get.docker.com on each; `docker swarm init` on swarm1, workers joined with token.
+- Multi-node is required so the two app replicas can be placed on different nodes (Task 6b).
+- Nodes pull the app image straight from Docker Hub (docker.io/lpetrec/tempconverter:dev) — no rebuild.
+- Verified: `docker node ls` shows 3 nodes Ready, swarm1 as Leader.
+
+## Step 7B — Deploy to Docker Swarm + scale (LO4)
+- Wrote tempconverter-stack.yml (in repo as appendix). db pinned to manager (swarm1) with a
+  named volume; app = 2 replicas with max_replicas_per_node:1 (anti-affinity -> different nodes);
+  published 80:5000 via Swarm routing mesh (built-in load balancing); restart_policy on-failure.
+- Created the file in WSL and used `multipass transfer` into swarm1 (avoids cross-shell quoting issues).
+- Deployed: `docker stack deploy -c tempconverter-stack.yml tempconverter`. Reached app 2/2, db 1/1.
+- Placement verified via `docker stack ps`: app.1 on swarm2, app.2 on swarm3, db on swarm1.
+- Self-healing observed: early app tasks Failed (exit 1) because they started before MySQL was ready;
+  Swarm auto-restarted them until healthy. This is the Step-4 race condition solved automatically by
+  the orchestrator (key reflection point).
+- App reachable at http://<swarm1-ip> (port 80), load-balanced across replicas; conversions persist.
+- Scaling (Task 6c): `docker service scale tempconverter_app=3`. With max 1/node and 2 eligible nodes,
+  the 3rd replica stays Pending ("no suitable node") — the constraint correctly prevents doubling up.
+  To truly reach 3: add a node (preferred), or relax max_replicas_per_node (loses HA guarantee).
+  Scaled back to 2 for the required state.

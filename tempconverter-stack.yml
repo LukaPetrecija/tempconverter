@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: tempconverter
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - tcnet
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+  app:
+    image: docker.io/lpetrec/tempconverter:dev
+    environment:
+      DB_USER: appuser
+      DB_PASS: apppass
+      DB_HOST: db
+      DB_NAME: tempconverter
+      STUDENT: "Luka Petrecija"
+      COLLEGE: "Algebra Bernays University"
+    ports:
+      - "80:5000"
+    networks:
+      - tcnet
+    depends_on:
+      - db
+    deploy:
+      replicas: 2
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  tcnet:
+    driver: overlay
+
+volumes:
+  dbdata:
