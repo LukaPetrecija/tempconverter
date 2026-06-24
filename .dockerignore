@@ -1,0 +1,6 @@
+.git
+screenshots/
+PROJECT_LOG.md
+README.md
+__pycache__/
+*.pyc
